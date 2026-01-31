@@ -1,578 +1,644 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>在线多人Bingo游戏</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-
-        h1 {
-            text-align: center;
-            color: white;
-            margin-bottom: 10px;
-            font-size: 2.5em;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }
-
-        .subtitle {
-            text-align: center;
-            color: rgba(255,255,255,0.9);
-            margin-bottom: 20px;
-            font-size: 1.1em;
-        }
-
-        .connection-status {
-            text-align: center;
-            padding: 10px;
-            background: rgba(255,255,255,0.2);
-            border-radius: 10px;
-            margin-bottom: 20px;
-            color: white;
-            font-weight: bold;
-        }
-
-        .connection-status.connected {
-            background: rgba(0, 184, 148, 0.3);
-        }
-
-        .connection-status.disconnected {
-            background: rgba(255, 118, 117, 0.3);
-        }
-
-        .setup-screen {
-            background: white;
-            padding: 40px;
-            border-radius: 15px;
-            max-width: 500px;
-            margin: 50px auto;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.3);
-        }
-
-        .setup-screen h2 {
-            color: #667eea;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-
-        .input-group {
-            margin-bottom: 20px;
-        }
-
-        .input-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: #333;
-            font-weight: bold;
-        }
-
-        .input-group input {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            font-size: 1em;
-        }
-
-        .input-group input:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .help-text {
-            font-size: 0.9em;
-            color: #666;
-            margin-top: 5px;
-        }
-
-        .color-picker {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 10px;
-            margin-top: 10px;
-        }
-
-        .color-option {
-            aspect-ratio: 1;
-            border-radius: 50%;
-            cursor: pointer;
-            border: 3px solid transparent;
-            transition: all 0.3s ease;
-            position: relative;
-        }
-
-        .color-option:hover:not(.taken) {
-            transform: scale(1.1);
-        }
-
-        .color-option.selected {
-            border-color: #333;
-            box-shadow: 0 0 0 3px white, 0 0 0 6px #333;
-        }
-
-        .color-option.taken {
-            opacity: 0.3;
-            cursor: not-allowed;
-        }
-
-        .color-option.taken::after {
-            content: '✓';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: white;
-            font-size: 1.5em;
-            font-weight: bold;
-            text-shadow: 0 0 3px rgba(0,0,0,0.5);
-        }
-
-        .start-btn {
-            width: 100%;
-            padding: 15px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 25px;
-            font-size: 1.2em;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-        }
-
-        .start-btn:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(0,0,0,0.3);
-        }
-
-        .start-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .error-message {
-            background: #ff7675;
-            color: white;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 15px;
-            text-align: center;
-        }
-
-        .game-screen {
-            display: none;
-        }
-
-        .game-screen.active {
-            display: block;
-        }
-
-        .top-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-            gap: 15px;
-        }
-
-        .player-info {
-            background: white;
-            padding: 15px 25px;
-            border-radius: 25px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .player-color-dot {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            border: 2px solid white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        }
-
-        .player-name-text {
-            font-weight: bold;
-            color: #333;
-        }
-
-        .game-id-display {
-            background: white;
-            padding: 15px 25px;
-            border-radius: 25px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-            font-weight: bold;
-            color: #667eea;
-        }
-
-        .controls {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 20px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-        }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(0,0,0,0.3);
-        }
-
-        .customize-btn {
-            background: linear-gradient(135deg, #00b894 0%, #00cec9 100%);
-            color: white;
-        }
-
-        .reset-btn {
-            background: linear-gradient(135deg, #ff7675 0%, #d63031 100%);
-            color: white;
-        }
-
-        .main-content {
-            display: grid;
-            grid-template-columns: 1fr 300px;
-            gap: 20px;
-        }
-
-        .bingo-board {
-            background: white;
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.3);
-        }
-
-        .board-grid {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 10px;
-        }
-
-        .bingo-cell {
-            aspect-ratio: 1;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            border: 3px solid #ddd;
-            border-radius: 12px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            padding: 8px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .bingo-cell:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 6px 12px rgba(0,0,0,0.2);
-        }
-
-        .cell-task {
-            font-size: 0.8em;
-            text-align: center;
-            word-wrap: break-word;
-            line-height: 1.2;
-            z-index: 2;
-        }
-
-        .completion-markers {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            display: flex;
-            flex-direction: column;
-            gap: 3px;
-            z-index: 3;
-        }
-
-        .marker-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            border: 2px solid white;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-        }
-
-        .sidebar {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .players-panel {
-            background: white;
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.3);
-        }
-
-        .players-panel h3 {
-            color: #667eea;
-            margin-bottom: 15px;
-            font-size: 1.2em;
-        }
-
-        .player-list {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .player-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 12px;
-            background: #f8f9fa;
-            border-radius: 10px;
-            transition: all 0.3s ease;
-        }
-
-        .player-item.current-player {
-            background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
-            border: 2px solid #667eea;
-        }
-
-        .player-item-color {
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            border: 3px solid white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            flex-shrink: 0;
-        }
-
-        .player-item-info {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .player-item-name {
-            font-weight: bold;
-            color: #333;
-            margin-bottom: 3px;
-        }
-
-        .player-item-progress {
-            font-size: 0.85em;
-            color: #666;
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 6px;
-            background: #e0e0e0;
-            border-radius: 3px;
-            overflow: hidden;
-            margin-top: 5px;
-        }
-
-        .progress-fill {
-            height: 100%;
-            transition: width 0.3s ease;
-        }
-
-        .win-message {
-            background: linear-gradient(135deg, #00b894 0%, #00cec9 100%);
-            color: white;
-            padding: 20px;
-            border-radius: 15px;
-            text-align: center;
-            font-size: 1.3em;
-            font-weight: bold;
-            margin-bottom: 20px;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.3);
-            animation: celebration 0.5s ease;
-            display: none;
-        }
-
-        .win-message.show {
-            display: block;
-        }
-
-        @keyframes celebration {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.7);
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-
-        .modal.show {
-            display: flex;
-        }
-
-        .modal-content {
-            background: white;
-            padding: 30px;
-            border-radius: 15px;
-            max-width: 600px;
-            width: 90%;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
-
-        .modal-content h2 {
-            margin-bottom: 20px;
-            color: #667eea;
-        }
-
-        .task-input {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 10px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            font-size: 0.95em;
-        }
-
-        .save-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            width: 100%;
-            margin-top: 10px;
-            padding: 12px;
-            border: none;
-            border-radius: 10px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        @media (max-width: 1024px) {
-            .main-content {
-                grid-template-columns: 1fr;
+const COLORS = [
+    '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8',
+    '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B500', '#FF1493',
+    '#00CED1', '#FF69B4', '#32CD32', '#FF8C00', '#9370DB'
+];
+
+const COLOR_NAMES = {
+    '#FF6B6B': '红队',
+    '#4ECDC4': '青队',
+    '#45B7D1': '蓝队',
+    '#FFA07A': '橙队',
+    '#98D8C8': '薄荷队',
+    '#F7DC6F': '黄队',
+    '#BB8FCE': '紫队',
+    '#85C1E2': '天蓝队',
+    '#F8B500': '金队',
+    '#FF1493': '粉队',
+    '#00CED1': '青绿队',
+    '#FF69B4': '玫瑰队',
+    '#32CD32': '绿队',
+    '#FF8C00': '深橙队',
+    '#9370DB': '淡紫队'
+};
+
+let ws = null;
+let gameId = '';
+let teamColor = '';
+let gameData = null;
+let existingTeams = [];
+let currentUploadCell = null;
+
+// WebSocket连接
+function connectWebSocket() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}`;
+    
+    ws = new WebSocket(wsUrl);
+    
+    ws.onopen = () => {
+        console.log('WebSocket 连接成功');
+        updateConnectionStatus(true);
+    };
+    
+    ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        handleServerMessage(data);
+    };
+    
+    ws.onerror = (error) => {
+        console.error('WebSocket 错误:', error);
+        updateConnectionStatus(false);
+    };
+    
+    ws.onclose = () => {
+        console.log('WebSocket 连接关闭');
+        updateConnectionStatus(false);
+        
+        // 尝试重新连接
+        setTimeout(() => {
+            if (document.getElementById('gameScreen').classList.contains('active')) {
+                connectWebSocket();
             }
+        }, 3000);
+    };
+}
 
-            .sidebar {
-                order: -1;
-            }
-        }
+// 更新连接状态
+function updateConnectionStatus(connected) {
+    const statusEl = document.getElementById('connectionStatus');
+    if (connected) {
+        statusEl.textContent = '✓ 已连接';
+        statusEl.className = 'connection-status connected';
+    } else {
+        statusEl.textContent = '✗ 未连接 - 尝试重新连接...';
+        statusEl.className = 'connection-status disconnected';
+    }
+}
 
-        @media (max-width: 600px) {
-            h1 {
-                font-size: 1.8em;
-            }
-
-            .cell-task {
-                font-size: 0.65em;
-            }
-
-            .top-bar {
-                flex-direction: column;
-            }
-
-            .game-id-display {
-                font-size: 0.9em;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="connection-status" id="connectionStatus">连接中...</div>
-
-        <!-- 设置界面 -->
-        <div class="setup-screen" id="setupScreen">
-            <h2>🎯 加入团队Bingo游戏</h2>
-            <div id="setupError"></div>
-            <div class="input-group">
-                <label>游戏ID</label>
-                <input type="text" id="gameIdInput" placeholder="输入游戏ID或留空创建新游戏">
-                <div class="help-text">留空将自动创建新游戏，或输入朋友分享的游戏ID加入游戏</div>
-            </div>
-            <div class="input-group">
-                <label>选择你的队伍颜色</label>
-                <div class="color-picker" id="colorPicker"></div>
-                <div class="help-text">同一颜色的玩家为一个队伍，共享进度</div>
-            </div>
-            <button class="start-btn" id="startBtn" onclick="joinGame()">加入游戏</button>
-        </div>
-
-        <!-- 游戏界面 -->
-        <div class="game-screen" id="gameScreen">
-            <h1>🎯 团队Bingo游戏</h1>
-            <div class="subtitle">同一颜色为一个队伍，共同完成任务！</div>
+// 处理服务器消息
+function handleServerMessage(data) {
+    console.log('收到消息:', data);
+    
+    switch (data.type) {
+        case 'GAME_CREATED':
+            gameId = data.gameId;
+            teamColor = data.teamColor;
+            gameData = data.gameData;
+            enterGame();
+            break;
             
-            <div class="top-bar">
-                <div class="player-info">
-                    <div class="player-color-dot" id="currentPlayerColorDot"></div>
-                    <span class="player-name-text" id="currentPlayerName">我的队伍</span>
-                </div>
-                <div class="game-id-display">
-                    游戏ID: <span id="displayGameId"></span>
-                </div>
-                <div class="controls">
-                    <button class="btn customize-btn" onclick="openCustomize()">✏️ 自定义任务</button>
-                    <button class="btn reset-btn" onclick="resetTeamProgress()">🔄 重置队伍进度</button>
+        case 'GAME_JOINED':
+            gameId = data.gameId;
+            teamColor = data.teamColor;
+            gameData = data.gameData;
+            enterGame();
+            // 加载历史聊天记录
+            if (gameData.chatHistory) {
+                gameData.chatHistory.forEach(msg => displayChatMessage(msg));
+            }
+            break;
+            
+        case 'TEAM_UPDATED':
+            gameData = data.gameData;
+            updateBoard();
+            updateTeamList();
+            break;
+            
+        case 'PROGRESS_UPDATED':
+            gameData = data.gameData;
+            updateBoard();
+            updateTeamList();
+            
+            // 如果是当前队伍，检查连线
+            if (data.teamColor === teamColor) {
+                checkForWin(data.lines);
+            }
+            break;
+            
+        case 'TASKS_UPDATED':
+            gameData = data.gameData;
+            initializeBoard();
+            break;
+            
+        case 'PROGRESS_RESET':
+            gameData = data.gameData;
+            updateBoard();
+            updateTeamList();
+            break;
+            
+        case 'GAME_EXISTS':
+            existingTeams = data.existingTeams;
+            updateColorPicker();
+            break;
+            
+        case 'GAME_NOT_FOUND':
+            existingTeams = [];
+            updateColorPicker();
+            break;
+            
+        case 'IMAGE_UPLOADED':
+            gameData = data.gameData;
+            updateBoard();
+            break;
+            
+        case 'CHAT_MESSAGE':
+            displayChatMessage(data.chatMessage);
+            break;
+            
+        case 'ERROR':
+            showError(data.message);
+            document.getElementById('startBtn').disabled = false;
+            break;
+    }
+}
+
+// 初始化
+function init() {
+    connectWebSocket();
+    initColorPicker();
+    
+    // 监听游戏ID输入
+    document.getElementById('gameIdInput').addEventListener('input', (e) => {
+        const inputGameId = e.target.value.trim();
+        if (inputGameId && ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+                type: 'CHECK_GAME',
+                gameId: inputGameId
+            }));
+        } else {
+            usedColors = [];
+            updateColorPicker();
+        }
+    });
+}
+
+// 初始化颜色选择器
+function initColorPicker() {
+    const colorPicker = document.getElementById('colorPicker');
+    colorPicker.innerHTML = '';
+    
+    COLORS.forEach(color => {
+        const option = document.createElement('div');
+        option.className = 'color-option';
+        option.style.backgroundColor = color;
+        option.dataset.color = color;
+        option.onclick = () => selectColor(color, option);
+        option.title = COLOR_NAMES[color];
+        colorPicker.appendChild(option);
+    });
+}
+
+// 更新颜色选择器 - 显示队伍信息
+function updateColorPicker() {
+    document.querySelectorAll('.color-option').forEach(option => {
+        const color = option.dataset.color;
+        const team = existingTeams.find(t => t.color === color);
+        
+        option.classList.remove('taken');
+        
+        if (team) {
+            // 显示队伍信息
+            option.title = `${COLOR_NAMES[color]} - ${team.memberCount}人 - ${team.progress}/25完成 - ${team.lines}连线`;
+        } else {
+            option.title = COLOR_NAMES[color];
+        }
+    });
+}
+
+// 选择颜色
+function selectColor(color, element) {
+    teamColor = color;
+    document.querySelectorAll('.color-option').forEach(opt => {
+        opt.classList.remove('selected');
+    });
+    element.classList.add('selected');
+}
+
+// 加入游戏
+function joinGame() {
+    const inputGameId = document.getElementById('gameIdInput').value.trim();
+    
+    if (!teamColor) {
+        showError('请选择一个队伍颜色！');
+        return;
+    }
+    
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+        showError('未连接到服务器，请稍后重试');
+        return;
+    }
+    
+    document.getElementById('startBtn').disabled = true;
+    
+    if (inputGameId) {
+        // 加入现有游戏
+        ws.send(JSON.stringify({
+            type: 'JOIN_GAME',
+            gameId: inputGameId,
+            teamColor: teamColor
+        }));
+    } else {
+        // 创建新游戏
+        ws.send(JSON.stringify({
+            type: 'CREATE_GAME',
+            teamColor: teamColor
+        }));
+    }
+}
+
+// 进入游戏
+function enterGame() {
+    document.getElementById('setupScreen').style.display = 'none';
+    document.getElementById('gameScreen').classList.add('active');
+    
+    document.getElementById('currentPlayerName').textContent = COLOR_NAMES[teamColor];
+    document.getElementById('currentPlayerColorDot').style.backgroundColor = teamColor;
+    document.getElementById('displayGameId').textContent = gameId;
+    
+    initializeBoard();
+    updateTeamList();
+}
+
+// 初始化棋盘
+function initializeBoard() {
+    const grid = document.getElementById('bingoGrid');
+    grid.innerHTML = '';
+    
+    gameData.tasks.forEach((task, index) => {
+        const cell = document.createElement('div');
+        cell.className = 'bingo-cell';
+        cell.dataset.index = index;
+        
+        cell.innerHTML = `
+            <div class="cell-background" id="bg-${index}"></div>
+            <div class="completion-markers" id="markers-${index}"></div>
+            <div class="cell-task">${task}</div>
+            <button class="upload-button" onclick="openImageUpload(${index})" title="上传图片证明">📷</button>
+        `;
+        
+        cell.addEventListener('click', (e) => {
+            if (!e.target.classList.contains('upload-button')) {
+                toggleCell(index);
+            }
+        });
+        
+        grid.appendChild(cell);
+    });
+    
+    updateBoard();
+}
+
+// 打开图片上传
+function openImageUpload(cellIndex) {
+    currentUploadCell = cellIndex;
+    document.getElementById('imageInput').click();
+}
+
+// 处理图片上传
+document.getElementById('imageInput').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file || currentUploadCell === null) return;
+    
+    const formData = new FormData();
+    formData.append('image', file);
+    
+    try {
+        const response = await fetch(`/upload/${gameId}/${teamColor}/${currentUploadCell}`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            console.log('图片上传成功:', result.imageUrl);
+            // 服务器会通过WebSocket广播更新
+        } else {
+            alert('上传失败: ' + result.error);
+        }
+    } catch (error) {
+        console.error('上传错误:', error);
+        alert('上传失败，请重试');
+    }
+    
+    // 清空input
+    e.target.value = '';
+    currentUploadCell = null;
+});
+
+// 切换格子状态
+function toggleCell(index) {
+    const currentTeam = gameData.teams.find(t => t.color === teamColor);
+    if (!currentTeam) return;
+    
+    const newCompleted = !currentTeam.completed[index];
+    
+    ws.send(JSON.stringify({
+        type: 'UPDATE_PROGRESS',
+        gameId: gameId,
+        teamColor: teamColor,
+        cellIndex: index,
+        completed: newCompleted
+    }));
+}
+
+// 更新棋盘显示
+function updateBoard() {
+    if (!gameData) return;
+    
+    gameData.tasks.forEach((task, index) => {
+        const cell = document.querySelector(`.bingo-cell[data-index="${index}"]`);
+        if (!cell) return;
+        
+        // 获取完成该格子的所有队伍
+        const completedTeams = gameData.teams.filter(team => team.completed[index]);
+        
+        // 更新背景
+        const bgDiv = document.getElementById(`bg-${index}`);
+        if (bgDiv) {
+            bgDiv.innerHTML = '';
+            
+            if (completedTeams.length > 0) {
+                cell.classList.add('multi-team');
+                completedTeams.forEach(team => {
+                    const segment = document.createElement('div');
+                    segment.className = 'cell-segment';
+                    segment.style.backgroundColor = team.color;
+                    bgDiv.appendChild(segment);
+                });
+            } else {
+                cell.classList.remove('multi-team');
+                cell.style.background = 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)';
+            }
+        }
+        
+        // 更新标记点
+        const markersDiv = document.getElementById(`markers-${index}`);
+        if (markersDiv) {
+            markersDiv.innerHTML = '';
+            
+            completedTeams.forEach(team => {
+                const marker = document.createElement('div');
+                marker.className = 'marker-dot';
+                marker.style.backgroundColor = team.color;
+                marker.title = `${COLOR_NAMES[team.color]} - ${team.memberCount}人`;
+                markersDiv.appendChild(marker);
+            });
+        }
+        
+        // 显示图片数量
+        let totalImages = 0;
+        gameData.teams.forEach(team => {
+            if (team.images && team.images[index]) {
+                totalImages += team.images[index].length;
+            }
+        });
+        
+        // 移除旧的图片计数
+        const oldCount = cell.querySelector('.image-count');
+        if (oldCount) oldCount.remove();
+        
+        if (totalImages > 0) {
+            const imageCount = document.createElement('div');
+            imageCount.className = 'image-count';
+            imageCount.textContent = `📷${totalImages}`;
+            imageCount.onclick = (e) => {
+                e.stopPropagation();
+                showImages(index);
+            };
+            imageCount.style.cursor = 'pointer';
+            cell.appendChild(imageCount);
+        }
+    });
+}
+
+// 显示图片
+function showImages(cellIndex) {
+    const modal = document.getElementById('imageModal');
+    const gallery = document.getElementById('imageGallery');
+    gallery.innerHTML = '';
+    
+    gameData.teams.forEach(team => {
+        if (team.images && team.images[cellIndex]) {
+            team.images[cellIndex].forEach(img => {
+                const imgContainer = document.createElement('div');
+                imgContainer.style.cssText = 'border: 3px solid; border-radius: 8px; overflow: hidden; position: relative;';
+                imgContainer.style.borderColor = team.color;
+                
+                const imgEl = document.createElement('img');
+                imgEl.src = img.url;
+                imgEl.style.cssText = 'width: 100%; height: 200px; object-fit: cover; display: block;';
+                imgEl.onclick = () => window.open(img.url, '_blank');
+                imgEl.style.cursor = 'pointer';
+                
+                const teamLabel = document.createElement('div');
+                teamLabel.textContent = COLOR_NAMES[team.color];
+                teamLabel.style.cssText = `background: ${team.color}; color: white; padding: 5px; text-align: center; font-size: 0.85em; font-weight: bold;`;
+                
+                imgContainer.appendChild(imgEl);
+                imgContainer.appendChild(teamLabel);
+                gallery.appendChild(imgContainer);
+            });
+        }
+    });
+    
+    modal.classList.add('show');
+}
+
+// 更新团队列表
+function updateTeamList() {
+    if (!gameData) return;
+    
+    const teamList = document.getElementById('playerList');
+    teamList.innerHTML = '';
+    
+    // 按连线数和完成数排序
+    const sortedTeams = [...gameData.teams].sort((a, b) => {
+        if (b.lines !== a.lines) return b.lines - a.lines;
+        const aCompleted = a.completed.filter(c => c).length;
+        const bCompleted = b.completed.filter(c => c).length;
+        return bCompleted - aCompleted;
+    });
+    
+    sortedTeams.forEach((team, index) => {
+        const completedCount = team.completed.filter(c => c).length;
+        const progress = Math.round((completedCount / 25) * 100);
+        
+        const teamItem = document.createElement('div');
+        teamItem.className = 'player-item';
+        if (team.color === teamColor) {
+            teamItem.classList.add('current-player');
+        }
+        
+        const rankEmoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+        
+        teamItem.innerHTML = `
+            <div class="player-item-color" style="background-color: ${team.color}"></div>
+            <div class="player-item-info">
+                <div class="player-item-name">${rankEmoji} ${COLOR_NAMES[team.color]} (${team.memberCount}人)${team.color === teamColor ? ' ⭐' : ''}</div>
+                <div class="player-item-progress">完成: ${completedCount}/25 | 连线: ${team.lines}</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: ${progress}%; background-color: ${team.color}"></div>
                 </div>
             </div>
+        `;
+        
+        teamList.appendChild(teamItem);
+    });
+}
 
-            <div class="win-message" id="winMessage"></div>
+// 检查胜利
+function checkForWin(lines) {
+    const currentTeam = gameData.teams.find(t => t.color === teamColor);
+    if (!currentTeam) return;
+    
+    const prevLines = currentTeam.lines;
+    
+    if (lines > prevLines) {
+        const winMessage = document.getElementById('winMessage');
+        winMessage.textContent = `🎉 ${COLOR_NAMES[teamColor]}完成了 ${lines} 条连线！🎉`;
+        winMessage.classList.add('show');
+        setTimeout(() => {
+            winMessage.classList.remove('show');
+        }, 3000);
+    }
+}
 
-            <div class="main-content">
-                <div class="bingo-board">
-                    <div class="board-grid" id="bingoGrid"></div>
-                </div>
+// 重置队伍进度
+function resetTeamProgress() {
+    if (!confirm('确定要重置你的队伍进度吗？这将影响所有队友！')) return;
+    
+    ws.send(JSON.stringify({
+        type: 'RESET_PROGRESS',
+        gameId: gameId,
+        teamColor: teamColor
+    }));
+}
 
-                <div class="sidebar">
-                    <div class="players-panel">
-                        <h3>队伍排行榜</h3>
-                        <div class="player-list" id="playerList"></div>
-                    </div>
-                </div>
-            </div>
+// 打开自定义任务弹窗
+function openCustomize() {
+    const modal = document.getElementById('customizeModal');
+    const taskInputs = document.getElementById('taskInputs');
+    taskInputs.innerHTML = '';
+    
+    gameData.tasks.forEach((task, index) => {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'task-input';
+        input.value = task;
+        input.placeholder = `任务 ${index + 1}`;
+        taskInputs.appendChild(input);
+    });
+    
+    modal.classList.add('show');
+}
+
+// 保存任务
+function saveTasks() {
+    const inputs = document.querySelectorAll('.task-input');
+    const tasks = Array.from(inputs).map(input => input.value || '空任务');
+    
+    ws.send(JSON.stringify({
+        type: 'UPDATE_TASKS',
+        gameId: gameId,
+        tasks: tasks
+    }));
+    
+    document.getElementById('customizeModal').classList.remove('show');
+}
+
+// 显示错误
+function showError(message) {
+    const errorDiv = document.getElementById('setupError');
+    errorDiv.innerHTML = `<div class="error-message">${message}</div>`;
+    setTimeout(() => {
+        errorDiv.innerHTML = '';
+    }, 5000);
+}
+
+// 显示通知
+function showNotification(message) {
+    console.log('通知:', message);
+}
+
+// 关闭弹窗
+document.getElementById('customizeModal').addEventListener('click', (e) => {
+    if (e.target.id === 'customizeModal') {
+        e.target.classList.remove('show');
+    }
+});
+
+document.getElementById('imageModal').addEventListener('click', (e) => {
+    if (e.target.id === 'imageModal') {
+        e.target.classList.remove('show');
+    }
+});
+
+// 发送聊天消息
+function sendChatMessage() {
+    const input = document.getElementById('chatInput');
+    const message = input.value.trim();
+    
+    if (!message) return;
+    
+    ws.send(JSON.stringify({
+        type: 'CHAT_MESSAGE',
+        gameId: gameId,
+        teamColor: teamColor,
+        teamName: COLOR_NAMES[teamColor],
+        message: message
+    }));
+    
+    input.value = '';
+}
+
+// 显示聊天消息
+function displayChatMessage(chatMessage) {
+    const messagesDiv = document.getElementById('chatMessages');
+    
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'chat-message';
+    
+    const time = new Date(chatMessage.timestamp).toLocaleTimeString('zh-CN', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+    });
+    
+    msgDiv.innerHTML = `
+        <div class="chat-message-header">
+            <div class="chat-team-dot" style="background-color: ${chatMessage.teamColor}"></div>
+            <span class="chat-team-name">${chatMessage.teamName}</span>
+            <span class="chat-time">${time}</span>
         </div>
-    </div>
+        <div class="chat-message-text">${escapeHtml(chatMessage.message)}</div>
+    `;
+    
+    messagesDiv.appendChild(msgDiv);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
 
-    <!-- 自定义任务弹窗 -->
-    <div class="modal" id="customizeModal">
-        <div class="modal-content">
-            <h2>自定义Bingo任务</h2>
-            <p style="color: #666; margin-bottom: 20px;">编辑下面的任务（所有玩家共享）</p>
-            <div id="taskInputs"></div>
-            <button class="save-btn" onclick="saveTasks()">💾 保存任务</button>
-        </div>
-    </div>
+// HTML转义
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
 
-    <script src="client.js"></script>
-</body>
-</html>
+// 监听Enter键发送消息  
+const setupChatInput = () => {
+    const chatInput = document.getElementById('chatInput');
+    if (chatInput) {
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendChatMessage();
+            }
+        });
+    }
+};
+
+// 页面加载时初始化
+window.addEventListener('load', () => {
+    init();
+    setupChatInput();
+});
