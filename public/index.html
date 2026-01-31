@@ -317,7 +317,7 @@
         }
 
         .cell-task {
-            font-size: 0.8em;
+            font-size: 0.75em;
             text-align: center;
             word-wrap: break-word;
             line-height: 1.2;
@@ -327,6 +327,12 @@
             text-shadow: 0 0 3px white, 0 0 5px white;
             font-weight: bold;
             color: #333;
+            max-height: 80%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
         }
 
         .completion-markers {
@@ -347,17 +353,19 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.3);
         }
 
-        .upload-button {
+        .detail-button {
             position: absolute;
             bottom: 5px;
-            left: 5px;
-            background: rgba(255,255,255,0.9);
-            border: none;
+            right: 5px;
+            background: rgba(255,255,255,0.95);
+            border: 2px solid #667eea;
             border-radius: 50%;
-            width: 28px;
-            height: 28px;
+            width: 30px;
+            height: 30px;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #667eea;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -366,128 +374,16 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
 
-        .upload-button:hover {
-            transform: scale(1.1);
-            background: rgba(255,255,255,1);
-        }
-
-        .image-count {
-            position: absolute;
-            bottom: 5px;
-            right: 5px;
-            background: rgba(255,255,255,0.9);
-            border-radius: 10px;
-            padding: 2px 6px;
-            font-size: 10px;
-            font-weight: bold;
-            z-index: 3;
-            color: #667eea;
+        .detail-button:hover {
+            transform: scale(1.15);
+            background: #667eea;
+            color: white;
         }
 
         .sidebar {
             display: flex;
             flex-direction: column;
             gap: 20px;
-        }
-
-        .chat-panel {
-            background: white;
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.3);
-            display: flex;
-            flex-direction: column;
-            height: 400px;
-        }
-
-        .chat-panel h3 {
-            color: #667eea;
-            margin-bottom: 15px;
-            font-size: 1.2em;
-        }
-
-        .chat-messages {
-            flex: 1;
-            overflow-y: auto;
-            margin-bottom: 15px;
-            padding: 10px;
-            background: #f8f9fa;
-            border-radius: 10px;
-        }
-
-        .chat-message {
-            margin-bottom: 10px;
-            padding: 8px 12px;
-            border-radius: 8px;
-            background: white;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-
-        .chat-message-header {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            margin-bottom: 4px;
-        }
-
-        .chat-team-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            border: 2px solid white;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.2);
-        }
-
-        .chat-team-name {
-            font-weight: bold;
-            font-size: 0.9em;
-            color: #333;
-        }
-
-        .chat-time {
-            font-size: 0.75em;
-            color: #999;
-            margin-left: auto;
-        }
-
-        .chat-message-text {
-            font-size: 0.9em;
-            color: #555;
-            word-wrap: break-word;
-        }
-
-        .chat-input-area {
-            display: flex;
-            gap: 10px;
-        }
-
-        .chat-input {
-            flex: 1;
-            padding: 10px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            font-size: 0.9em;
-        }
-
-        .chat-input:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .chat-send-btn {
-            padding: 10px 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .chat-send-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
 
         .players-panel {
@@ -720,15 +616,6 @@
                         <h3>队伍排行榜</h3>
                         <div class="player-list" id="playerList"></div>
                     </div>
-
-                    <div class="chat-panel">
-                        <h3>💬 队伍聊天</h3>
-                        <div class="chat-messages" id="chatMessages"></div>
-                        <div class="chat-input-area">
-                            <input type="text" class="chat-input" id="chatInput" placeholder="输入消息..." maxlength="200">
-                            <button class="chat-send-btn" onclick="sendChatMessage()">发送</button>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -744,15 +631,16 @@
         </div>
     </div>
 
-    <!-- 图片查看弹窗 -->
-    <div class="modal" id="imageModal">
-        <div class="modal-content">
-            <h2>任务证明图片</h2>
-            <div id="imageGallery" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-top: 20px;"></div>
+    <!-- 任务详情弹窗 -->
+    <div class="modal" id="detailModal">
+        <div class="modal-content" style="max-width: 500px;">
+            <h2 id="detailTitle">任务详情</h2>
+            <div id="detailContent" style="font-size: 1.1em; line-height: 1.6; margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 10px; color: #333;"></div>
+            <div style="margin-top: 20px; display: flex; gap: 10px;">
+                <button class="save-btn" onclick="closeDetailModal()" style="flex: 1;">关闭</button>
+            </div>
         </div>
     </div>
-
-    <input type="file" id="imageInput" accept="image/*" style="display: none;">
 
     <script src="client.js"></script>
 </body>
