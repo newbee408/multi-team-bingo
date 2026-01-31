@@ -27,7 +27,6 @@ let gameId = '';
 let teamColor = '';
 let gameData = null;
 let existingTeams = [];
-let currentUploadCell = null;
 
 // WebSocket连接
 function connectWebSocket() {
@@ -93,10 +92,6 @@ function handleServerMessage(data) {
             teamColor = data.teamColor;
             gameData = data.gameData;
             enterGame();
-            // 加载历史聊天记录
-            if (gameData.chatHistory) {
-                gameData.chatHistory.forEach(msg => displayChatMessage(msg));
-            }
             break;
             
         case 'TEAM_UPDATED':
@@ -135,15 +130,6 @@ function handleServerMessage(data) {
         case 'GAME_NOT_FOUND':
             existingTeams = [];
             updateColorPicker();
-            break;
-            
-        case 'IMAGE_UPLOADED':
-            gameData = data.gameData;
-            updateBoard();
-            break;
-            
-        case 'CHAT_MESSAGE':
-            displayChatMessage(data.chatMessage);
             break;
             
         case 'ERROR':
@@ -274,11 +260,11 @@ function initializeBoard() {
             <div class="cell-background" id="bg-${index}"></div>
             <div class="completion-markers" id="markers-${index}"></div>
             <div class="cell-task">${task}</div>
-            <button class="upload-button" onclick="openImageUpload(${index})" title="上传图片证明">📷</button>
+            <button class="detail-button" onclick="showTaskDetail(${index})" title="查看任务详情">ℹ️</button>
         `;
         
         cell.addEventListener('click', (e) => {
-            if (!e.target.classList.contains('upload-button')) {
+            if (!e.target.classList.contains('detail-button')) {
                 toggleCell(index);
             }
         });
@@ -289,43 +275,22 @@ function initializeBoard() {
     updateBoard();
 }
 
-// 打开图片上传
-function openImageUpload(cellIndex) {
-    currentUploadCell = cellIndex;
-    document.getElementById('imageInput').click();
+// 显示任务详情
+function showTaskDetail(cellIndex) {
+    const modal = document.getElementById('detailModal');
+    const title = document.getElementById('detailTitle');
+    const content = document.getElementById('detailContent');
+    
+    title.textContent = `任务 ${cellIndex + 1}`;
+    content.textContent = gameData.tasks[cellIndex];
+    
+    modal.classList.add('show');
 }
 
-// 处理图片上传
-document.getElementById('imageInput').addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    if (!file || currentUploadCell === null) return;
-    
-    const formData = new FormData();
-    formData.append('image', file);
-    
-    try {
-        const response = await fetch(`/upload/${gameId}/${teamColor}/${currentUploadCell}`, {
-            method: 'POST',
-            body: formData
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            console.log('图片上传成功:', result.imageUrl);
-            // 服务器会通过WebSocket广播更新
-        } else {
-            alert('上传失败: ' + result.error);
-        }
-    } catch (error) {
-        console.error('上传错误:', error);
-        alert('上传失败，请重试');
-    }
-    
-    // 清空input
-    e.target.value = '';
-    currentUploadCell = null;
-});
+// 关闭详情弹窗
+function closeDetailModal() {
+    document.getElementById('detailModal').classList.remove('show');
+}
 
 // 切换格子状态
 function toggleCell(index) {
@@ -386,64 +351,7 @@ function updateBoard() {
                 markersDiv.appendChild(marker);
             });
         }
-        
-        // 显示图片数量
-        let totalImages = 0;
-        gameData.teams.forEach(team => {
-            if (team.images && team.images[index]) {
-                totalImages += team.images[index].length;
-            }
-        });
-        
-        // 移除旧的图片计数
-        const oldCount = cell.querySelector('.image-count');
-        if (oldCount) oldCount.remove();
-        
-        if (totalImages > 0) {
-            const imageCount = document.createElement('div');
-            imageCount.className = 'image-count';
-            imageCount.textContent = `📷${totalImages}`;
-            imageCount.onclick = (e) => {
-                e.stopPropagation();
-                showImages(index);
-            };
-            imageCount.style.cursor = 'pointer';
-            cell.appendChild(imageCount);
-        }
     });
-}
-
-// 显示图片
-function showImages(cellIndex) {
-    const modal = document.getElementById('imageModal');
-    const gallery = document.getElementById('imageGallery');
-    gallery.innerHTML = '';
-    
-    gameData.teams.forEach(team => {
-        if (team.images && team.images[cellIndex]) {
-            team.images[cellIndex].forEach(img => {
-                const imgContainer = document.createElement('div');
-                imgContainer.style.cssText = 'border: 3px solid; border-radius: 8px; overflow: hidden; position: relative;';
-                imgContainer.style.borderColor = team.color;
-                
-                const imgEl = document.createElement('img');
-                imgEl.src = img.url;
-                imgEl.style.cssText = 'width: 100%; height: 200px; object-fit: cover; display: block;';
-                imgEl.onclick = () => window.open(img.url, '_blank');
-                imgEl.style.cursor = 'pointer';
-                
-                const teamLabel = document.createElement('div');
-                teamLabel.textContent = COLOR_NAMES[team.color];
-                teamLabel.style.cssText = `background: ${team.color}; color: white; padding: 5px; text-align: center; font-size: 0.85em; font-weight: bold;`;
-                
-                imgContainer.appendChild(imgEl);
-                imgContainer.appendChild(teamLabel);
-                gallery.appendChild(imgContainer);
-            });
-        }
-    });
-    
-    modal.classList.add('show');
 }
 
 // 更新团队列表
@@ -569,76 +477,13 @@ document.getElementById('customizeModal').addEventListener('click', (e) => {
     }
 });
 
-document.getElementById('imageModal').addEventListener('click', (e) => {
-    if (e.target.id === 'imageModal') {
+document.getElementById('detailModal').addEventListener('click', (e) => {
+    if (e.target.id === 'detailModal') {
         e.target.classList.remove('show');
     }
 });
 
-// 发送聊天消息
-function sendChatMessage() {
-    const input = document.getElementById('chatInput');
-    const message = input.value.trim();
-    
-    if (!message) return;
-    
-    ws.send(JSON.stringify({
-        type: 'CHAT_MESSAGE',
-        gameId: gameId,
-        teamColor: teamColor,
-        teamName: COLOR_NAMES[teamColor],
-        message: message
-    }));
-    
-    input.value = '';
-}
-
-// 显示聊天消息
-function displayChatMessage(chatMessage) {
-    const messagesDiv = document.getElementById('chatMessages');
-    
-    const msgDiv = document.createElement('div');
-    msgDiv.className = 'chat-message';
-    
-    const time = new Date(chatMessage.timestamp).toLocaleTimeString('zh-CN', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-    });
-    
-    msgDiv.innerHTML = `
-        <div class="chat-message-header">
-            <div class="chat-team-dot" style="background-color: ${chatMessage.teamColor}"></div>
-            <span class="chat-team-name">${chatMessage.teamName}</span>
-            <span class="chat-time">${time}</span>
-        </div>
-        <div class="chat-message-text">${escapeHtml(chatMessage.message)}</div>
-    `;
-    
-    messagesDiv.appendChild(msgDiv);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-}
-
-// HTML转义
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-// 监听Enter键发送消息  
-const setupChatInput = () => {
-    const chatInput = document.getElementById('chatInput');
-    if (chatInput) {
-        chatInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                sendChatMessage();
-            }
-        });
-    }
-};
-
 // 页面加载时初始化
 window.addEventListener('load', () => {
     init();
-    setupChatInput();
 });
