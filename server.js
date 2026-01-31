@@ -2,45 +2,10 @@ const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
 const path = require('path');
-const multer = require('multer');
-const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
-
-// 创建上传目录
-const uploadDir = path.join(__dirname, 'public', 'uploads');
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-// 配置文件上传
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, uploadDir);
-    },
-    filename: function (req, file, cb) {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + path.extname(file.originalname));
-    }
-});
-
-const upload = multer({ 
-    storage: storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB限制
-    fileFilter: function (req, file, cb) {
-        const allowedTypes = /jpeg|jpg|png|gif|webp/;
-        const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-        const mimetype = allowedTypes.test(file.mimetype);
-        
-        if (mimetype && extname) {
-            return cb(null, true);
-        } else {
-            cb(new Error('只允许上传图片文件！'));
-        }
-    }
-});
 
 // 存储游戏数据（在生产环境中应使用数据库）
 const games = new Map();
@@ -48,60 +13,6 @@ const games = new Map();
 // 静态文件服务
 app.use(express.static('public'));
 app.use(express.json());
-
-// 图片上传接口
-app.post('/upload/:gameId/:teamColor/:cellIndex', upload.single('image'), (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({ error: '没有上传文件' });
-        }
-        
-        const { gameId, teamColor, cellIndex } = req.params;
-        const game = games.get(gameId);
-        
-        if (!game) {
-            return res.status(404).json({ error: '游戏不存在' });
-        }
-        
-        const team = game.teams.find(t => t.color === teamColor);
-        if (!team) {
-            return res.status(404).json({ error: '队伍不存在' });
-        }
-        
-        const imageUrl = `/uploads/${req.file.filename}`;
-        
-        // 保存图片URL到该格子
-        if (!team.images) {
-            team.images = {};
-        }
-        if (!team.images[cellIndex]) {
-            team.images[cellIndex] = [];
-        }
-        team.images[cellIndex].push({
-            url: imageUrl,
-            uploadTime: Date.now()
-        });
-        
-        res.json({ 
-            success: true, 
-            imageUrl: imageUrl,
-            message: '图片上传成功'
-        });
-        
-        // 通知所有客户端
-        broadcastToGame(gameId, {
-            type: 'IMAGE_UPLOADED',
-            teamColor: teamColor,
-            cellIndex: parseInt(cellIndex),
-            imageUrl: imageUrl,
-            gameData: game
-        });
-        
-    } catch (error) {
-        console.error('上传错误:', error);
-        res.status(500).json({ error: '上传失败' });
-    }
-});
 
 // WebSocket连接处理
 wss.on('connection', (ws) => {
@@ -130,9 +41,6 @@ wss.on('connection', (ws) => {
                 case 'CHECK_GAME':
                     handleCheckGame(ws, data);
                     break;
-                case 'CHAT_MESSAGE':
-                    handleChatMessage(ws, data);
-                    break;
             }
         } catch (error) {
             console.error('处理消息错误:', error);
@@ -158,15 +66,13 @@ function handleCreateGame(ws, data) {
         color: teamColor,
         completed: new Array(25).fill(false),
         lines: 0,
-        memberCount: 1,
-        images: {} // 存储每个格子的图片
+        memberCount: 1
     };
     
     const game = {
         id: gameId,
         tasks: data.tasks || getDefaultTasks(),
         teams: [team],
-        chatHistory: [], // 聊天记录
         createdAt: Date.now()
     };
     
@@ -211,8 +117,7 @@ function handleJoinGame(ws, data) {
             color: teamColor,
             completed: new Array(25).fill(false),
             lines: 0,
-            memberCount: 1,
-            images: {}
+            memberCount: 1
         };
         game.teams.push(team);
     }
@@ -340,38 +245,6 @@ function handleCheckGame(ws, data) {
     }
 }
 
-// 处理聊天消息
-function handleChatMessage(ws, data) {
-    const { gameId, teamColor, message, teamName } = data;
-    const game = games.get(gameId);
-    
-    if (!game) return;
-    
-    const chatMessage = {
-        teamColor: teamColor,
-        teamName: teamName,
-        message: message,
-        timestamp: Date.now()
-    };
-    
-    // 保存聊天记录
-    if (!game.chatHistory) {
-        game.chatHistory = [];
-    }
-    game.chatHistory.push(chatMessage);
-    
-    // 只保留最近100条消息
-    if (game.chatHistory.length > 100) {
-        game.chatHistory = game.chatHistory.slice(-100);
-    }
-    
-    // 广播消息
-    broadcastToGame(gameId, {
-        type: 'CHAT_MESSAGE',
-        chatMessage: chatMessage
-    });
-}
-
 // 处理断开连接
 function handleDisconnect(ws) {
     if (ws.gameId && ws.teamColor) {
@@ -380,9 +253,6 @@ function handleDisconnect(ws) {
             const team = game.teams.find(t => t.color === ws.teamColor);
             if (team && team.memberCount > 0) {
                 team.memberCount--;
-                
-                // 如果队伍人数为0，可以选择保留或删除
-                // 这里选择保留队伍数据，只是人数为0
                 
                 broadcastToGame(ws.gameId, {
                     type: 'TEAM_UPDATED',
