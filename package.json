@@ -1,13 +1,13 @@
 {
   "name": "bingo-multiplayer-server",
-  "version": "1.0.0",
-  "description": "多人实时Bingo游戏服务器",
+  "version": "2.1.0",
+  "description": "多人实时Bingo游戏服务器 - 团队模式",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js"
   },
-  "keywords": ["bingo", "multiplayer", "websocket", "game"],
+  "keywords": ["bingo", "multiplayer", "websocket", "game", "team"],
   "author": "",
   "license": "MIT",
   "dependencies": {
